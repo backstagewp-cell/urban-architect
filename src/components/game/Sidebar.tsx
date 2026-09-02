@@ -68,7 +68,7 @@ export function Sidebar({
   onShowGrid,
   money,
 }: Props) {
-  const items = ITEMS[category];
+  const items = ITEMS[category]!;
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col overflow-y-auto border-r border-panel-border bg-panel text-panel-foreground">
       <div className="px-4 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -85,7 +85,7 @@ export function Sidebar({
                 onCategory(c.id);
                 if (c.id === "apagar") onBrush("bulldoze");
                 else {
-                  const first = ITEMS[c.id][0];
+                  const first = ITEMS[c.id]![0];
                   if (first) onBrush(first.id);
                 }
               }}

@@ -60,14 +60,14 @@ export function createMap(): Tile[] {
   }
 
   // limiares por percentil: ~26% de árvores e ~5% de rochas no terreno livre
-  const free = [...forestMap].filter((_, i) => tiles[i].t === "empty").sort((a, b) => a - b);
-  const treeT = free[Math.floor(free.length * 0.74)] ?? 1;
-  const rockT = free[Math.floor(free.length * 0.69)] ?? 1;
+  const free = [...forestMap].filter((_, i) => tiles[i]!.t === "empty").sort((a, b) => a - b);
+  const treeT = free[Math.floor(free.length * 0.74)]! ?? 1;
+  const rockT = free[Math.floor(free.length * 0.69)]! ?? 1;
   for (let i = 0; i < tiles.length; i++) {
-    if (tiles[i].t !== "empty") continue;
+    if (tiles[i]!.t !== "empty") continue;
     const f = forestMap[i];
-    if (f >= treeT) tiles[i].t = "tree";
-    else if (f >= rockT) tiles[i].t = "rock";
+    if (f >= treeT) tiles[i]!.t = "tree";
+    else if (f >= rockT) tiles[i]!.t = "rock";
   }
   return tiles;
 }
@@ -101,7 +101,7 @@ export const isBuildable = (t: TileType) =>
 
 export function canPlace(state: GameState, x: number, y: number, type: TileType) {
   if (x < 0 || y < 0 || x >= W || y >= H) return false;
-  const tile = state.tiles[idx(x, y)];
+  const tile = state.tiles[idx(x, y)]!;
   if (tile.t === "water") return false;
   if (tile.t === type) return false;
   return isBuildable(tile.t) || isZone(tile.t) || tile.t === "road" || tile.t === "park";
@@ -119,7 +119,7 @@ export function place(state: GameState, x: number, y: number, type: TileType): b
 
 export function bulldoze(state: GameState, x: number, y: number): boolean {
   if (x < 0 || y < 0 || x >= W || y >= H) return false;
-  const tile = state.tiles[idx(x, y)];
+  const tile = state.tiles[idx(x, y)]!;
   if (tile.t === "empty" || tile.t === "water" || tile.t === "sand") return false;
   if (state.stats.money < 4) return false;
   state.stats.money -= 4;
@@ -138,15 +138,15 @@ function computeRoadAccess(tiles: Tile[]) {
   const access = new Uint8Array(W * H);
   const queue: number[] = [];
   for (let i = 0; i < tiles.length; i++) {
-    if (tiles[i].t === "road") {
+    if (tiles[i]!.t === "road") {
       access[i] = 4;
       queue.push(i);
     }
   }
   let head = 0;
   while (head < queue.length) {
-    const i = queue[head++];
-    const d = access[i];
+    const i = queue[head++]!;
+    const d = access[i]!;
     if (d <= 1) continue;
     const x = i % W;
     const y = (i / W) | 0;
@@ -158,8 +158,8 @@ function computeRoadAccess(tiles: Tile[]) {
     ];
     for (const n of nb) {
       if (n < 0) continue;
-      if (access[n] >= d - 1) continue;
-      if (tiles[n].t === "road") continue;
+      if (access[n]! >= d - 1) continue;
+      if (tiles[n]!.t === "road") continue;
       access[n] = d - 1;
       queue.push(n);
     }
@@ -191,7 +191,7 @@ export function step(state: GameState) {
   let upkeep = 0;
   let roadCount = 0;
   for (let i = 0; i < tiles.length; i++) {
-    const t = tiles[i].t;
+    const t = tiles[i]!.t;
     const def = BUILDINGS[t];
     if (def) upkeep += def.upkeep;
     if (t === "road") roadCount++;
@@ -226,7 +226,7 @@ export function step(state: GameState) {
   let powerUse = 0;
   const zones: number[] = [];
   for (let i = 0; i < tiles.length; i++) {
-    const t = tiles[i];
+    const t = tiles[i]!;
     if (isZone(t.t)) {
       zones.push(i);
       powerUse += (t.lvl + 1) * (t.t === "ind" ? 12 : 6);
@@ -241,7 +241,7 @@ export function step(state: GameState) {
   let comCap = 0;
   let indCap = 0;
   for (const i of zones) {
-    const t = tiles[i];
+    const t = tiles[i]!;
     pop += popOf(t);
     jobs += jobsOf(t);
     if (t.t === "res") resCap++;
@@ -262,7 +262,7 @@ export function step(state: GameState) {
   const taxFactor = clamp(1.35 - stats.taxRate / 14, 0.15, 1.2);
 
   for (const i of zones) {
-    const t = tiles[i];
+    const t = tiles[i]!;
     const x = i % W;
     const y = (i / W) | 0;
     const need = (t.lvl + 1) * (t.t === "ind" ? 12 : 6);
@@ -270,7 +270,7 @@ export function step(state: GameState) {
     if (hasPower) poweredBudget -= need;
     t.pow = hasPower;
 
-    const hasRoad = access[i] > 0;
+    const hasRoad = access[i]! > 0;
     const cov = coverageAt(x, y);
     const d = t.t === "res" ? demand.r : t.t === "com" ? demand.c : demand.i;
 
@@ -285,7 +285,7 @@ export function step(state: GameState) {
           const nx = x + dx;
           const ny = y + dy;
           if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-          if (tiles[idx(nx, ny)].t === "ind") bad += 0.05;
+          if (tiles[idx(nx, ny)]!.t === "ind") bad += 0.05;
         }
       desirability -= Math.min(bad, 0.5);
     }

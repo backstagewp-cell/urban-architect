@@ -26,7 +26,7 @@ function terrainColor(t: TileType, v: number) {
     case "sand":
       return v > 0.5 ? "#c8b183" : "#bfa679";
     default:
-      return GRASS[Math.floor(v * GRASS.length) % GRASS.length];
+      return GRASS[Math.floor(v * GRASS.length) % GRASS.length]!;
   }
 }
 
@@ -68,7 +68,7 @@ export function render(
   // terreno
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
-      const t = tiles[idx(x, y)];
+      const t = tiles[idx(x, y)]!;
       const px = originX + x * z;
       const py = originY + y * z;
       const base: TileType =
@@ -99,7 +99,7 @@ export function render(
   // ruas
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
-      if (tiles[idx(x, y)].t !== "road") continue;
+      if (tiles[idx(x, y)]!.t !== "road") continue;
       const px = originX + x * z;
       const py = originY + y * z;
       const inset = z * 0.08;
@@ -107,10 +107,10 @@ export function render(
       ctx.fillRect(px, py, z + 1, z + 1);
       ctx.fillStyle = "#4a4a4e";
       ctx.fillRect(px + inset, py + inset, z - inset * 2, z - inset * 2);
-      const n = y > 0 && tiles[idx(x, y - 1)].t === "road";
-      const s = y < H - 1 && tiles[idx(x, y + 1)].t === "road";
-      const w = x > 0 && tiles[idx(x - 1, y)].t === "road";
-      const e = x < W - 1 && tiles[idx(x + 1, y)].t === "road";
+      const n = y > 0 && tiles[idx(x, y - 1)]!.t === "road";
+      const s = y < H - 1 && tiles[idx(x, y + 1)]!.t === "road";
+      const w = x > 0 && tiles[idx(x - 1, y)]!.t === "road";
+      const e = x < W - 1 && tiles[idx(x + 1, y)]!.t === "road";
       ctx.strokeStyle = "rgba(240,235,200,0.65)";
       ctx.lineWidth = Math.max(1, z * 0.045);
       ctx.setLineDash([z * 0.22, z * 0.22]);
@@ -130,7 +130,7 @@ export function render(
   // natureza e construções
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
-      const t = tiles[idx(x, y)];
+      const t = tiles[idx(x, y)]!;
       const px = originX + x * z;
       const py = originY + y * z;
       switch (t.t) {
@@ -170,7 +170,7 @@ export function render(
         case "res":
         case "com":
         case "ind": {
-          const c = ZONE_COLORS[t.t];
+          const c = ZONE_COLORS[t.t]!;
           // marcação da zona
           ctx.fillStyle = c.tint + "";
           ctx.globalAlpha = 0.35;
@@ -228,7 +228,7 @@ export function render(
           };
           ctx.fillStyle = "rgba(0,0,0,0.3)";
           ctx.fillRect(px + z * 0.12, py + z * 0.12, z * 0.85, z * 0.85);
-          ctx.fillStyle = colors[t.t];
+          ctx.fillStyle = colors[t.t]!;
           ctx.fillRect(px + z * 0.06, py - z * 0.12, z * 0.85, z * 0.95);
           ctx.fillStyle = "rgba(255,255,255,0.25)";
           ctx.fillRect(px + z * 0.06, py - z * 0.12, z * 0.85, z * 0.2);
@@ -248,8 +248,8 @@ export function render(
       const px = originX + c.x * z;
       const py = originY + c.y * z;
       const bad =
-        tiles[idx(c.x, c.y)].t === "water" ||
-        (opts.brush === "bulldoze" && tiles[idx(c.x, c.y)].t === "empty");
+        tiles[idx(c.x, c.y)]!.t === "water" ||
+        (opts.brush === "bulldoze" && tiles[idx(c.x, c.y)]!.t === "empty");
       ctx.fillStyle = bad ? "rgba(220,60,60,0.45)" : "rgba(255,255,255,0.35)";
       ctx.fillRect(px, py, z, z);
       ctx.strokeStyle = bad ? "rgba(255,90,90,0.9)" : "rgba(255,255,255,0.9)";
