@@ -52,11 +52,11 @@ export function createMap(): Tile[] {
       else if (lakeD < 6) t = "water";
       else if (lakeD < 7.4) t = "sand";
       else {
-        const forest = noise(x, y, 11, 21);
-        if (forest > 0.66) t = "tree";
-        else if (forest > 0.635) t = "rock";
+        const forest = noise(x, y, 10, 21) * 0.7 + noise(x, y, 4, 33) * 0.3;
+        if (forest > 0.58) t = "tree";
+        else if (forest > 0.545) t = "rock";
       }
-      tiles[idx(x, y)] = { t, lvl: 0, grow: 0, pow: false, v: hash(x, y, 99) };
+      tiles[idx(x, y)] = { t, lvl: 0, grow: 0, pow: false, v: noise(x, y, 3.2, 55) };
     }
   }
   return tiles;
@@ -283,10 +283,10 @@ export function step(state: GameState) {
     const maxLvl = 1 + Math.round(cov.edu * 1.6 + cov.safety * 1.0 + cov.green * 0.8);
 
     if (!hasRoad || !hasPower) {
-      t.grow -= 0.12;
+      t.grow -= 0.2;
     } else {
       if (t.lvl >= Math.min(4, Math.max(1, maxLvl))) desirability = Math.min(desirability, 0);
-      t.grow += desirability * 0.14;
+      t.grow += desirability * 0.4;
     }
 
     if (t.grow >= 1) {
