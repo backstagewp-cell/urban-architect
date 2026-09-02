@@ -1,0 +1,260 @@
+import { H, W, type GameState } from "./engine";
+import type { TileType } from "./types";
+
+export interface Camera {
+  x: number; // centro em tiles
+  y: number;
+  zoom: number; // px por tile
+}
+
+const idx = (x: number, y: number) => y * W + x;
+
+function shade(hex: string, amt: number) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.max(0, Math.min(255, ((n >> 16) & 255) + amt));
+  const g = Math.max(0, Math.min(255, ((n >> 8) & 255) + amt));
+  const b = Math.max(0, Math.min(255, (n & 255) + amt));
+  return `rgb(${r},${g},${b})`;
+}
+
+const GRASS = ["#4c7a34", "#527f37", "#476f30", "#568539", "#43682d"];
+
+function terrainColor(t: TileType, v: number) {
+  switch (t) {
+    case "water":
+      return v > 0.5 ? "#1d4f6b" : "#1a4760";
+    case "sand":
+      return v > 0.5 ? "#c8b183" : "#bfa679";
+    default:
+      return GRASS[Math.floor(v * GRASS.length) % GRASS.length]!;
+  }
+}
+
+const ZONE_COLORS: Record<string, { base: string; roof: string; tint: string }> = {
+  res: { base: "#8fbf5a", roof: "#d9c9a3", tint: "#7fae4e" },
+  com: { base: "#4f9fd8", roof: "#cfe4f2", tint: "#3f8fc8" },
+  ind: { base: "#d9a53c", roof: "#e8d6a8", tint: "#c4912f" },
+};
+
+export function render(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  cam: Camera,
+  opts: {
+    width: number;
+    height: number;
+    hover: { x: number; y: number } | null;
+    brush: TileType | "bulldoze" | null;
+    showGrid: boolean;
+    dragCells?: { x: number; y: number }[];
+  },
+) {
+  const { width, height, hover, showGrid } = opts;
+  const z = cam.zoom;
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#12301c";
+  ctx.fillRect(0, 0, width, height);
+
+  const originX = width / 2 - cam.x * z;
+  const originY = height / 2 - cam.y * z;
+
+  const x0 = Math.max(0, Math.floor(-originX / z) - 1);
+  const y0 = Math.max(0, Math.floor(-originY / z) - 1);
+  const x1 = Math.min(W - 1, Math.ceil((width - originX) / z) + 1);
+  const y1 = Math.min(H - 1, Math.ceil((height - originY) / z) + 1);
+
+  const tiles = state.tiles;
+
+  // terreno
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const t = tiles[idx(x, y)]!;
+      const px = originX + x * z;
+      const py = originY + y * z;
+      const base: TileType =
+        t.t === "water" ? "water" : t.t === "sand" ? "sand" : "empty";
+      ctx.fillStyle = terrainColor(base, t.v);
+      ctx.fillRect(px, py, z + 1, z + 1);
+    }
+  }
+
+  // grade
+  if (showGrid && z > 7) {
+    ctx.strokeStyle = "rgba(0,0,0,0.10)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = x0; x <= x1 + 1; x++) {
+      const px = Math.round(originX + x * z) + 0.5;
+      ctx.moveTo(px, originY + y0 * z);
+      ctx.lineTo(px, originY + (y1 + 1) * z);
+    }
+    for (let y = y0; y <= y1 + 1; y++) {
+      const py = Math.round(originY + y * z) + 0.5;
+      ctx.moveTo(originX + x0 * z, py);
+      ctx.lineTo(originX + (x1 + 1) * z, py);
+    }
+    ctx.stroke();
+  }
+
+  // ruas
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (tiles[idx(x, y)]!.t !== "road") continue;
+      const px = originX + x * z;
+      const py = originY + y * z;
+      const inset = z * 0.08;
+      ctx.fillStyle = "#3a3a3d";
+      ctx.fillRect(px, py, z + 1, z + 1);
+      ctx.fillStyle = "#4a4a4e";
+      ctx.fillRect(px + inset, py + inset, z - inset * 2, z - inset * 2);
+      const n = y > 0 && tiles[idx(x, y - 1)]!.t === "road";
+      const s = y < H - 1 && tiles[idx(x, y + 1)]!.t === "road";
+      const w = x > 0 && tiles[idx(x - 1, y)]!.t === "road";
+      const e = x < W - 1 && tiles[idx(x + 1, y)]!.t === "road";
+      ctx.strokeStyle = "rgba(240,235,200,0.65)";
+      ctx.lineWidth = Math.max(1, z * 0.045);
+      ctx.setLineDash([z * 0.22, z * 0.22]);
+      ctx.beginPath();
+      if ((n || s) && !(w || e)) {
+        ctx.moveTo(px + z / 2, py);
+        ctx.lineTo(px + z / 2, py + z);
+      } else if ((w || e) && !(n || s)) {
+        ctx.moveTo(px, py + z / 2);
+        ctx.lineTo(px + z, py + z / 2);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // natureza e construções
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const t = tiles[idx(x, y)]!;
+      const px = originX + x * z;
+      const py = originY + y * z;
+      switch (t.t) {
+        case "tree": {
+          ctx.fillStyle = "#2c5424";
+          const r = z * 0.34;
+          ctx.beginPath();
+          ctx.arc(px + z * 0.35, py + z * 0.42, r, 0, Math.PI * 2);
+          ctx.arc(px + z * 0.68, py + z * 0.62, r * 0.85, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#3a6b2e";
+          ctx.beginPath();
+          ctx.arc(px + z * 0.32, py + z * 0.36, r * 0.7, 0, Math.PI * 2);
+          ctx.fill();
+          break;
+        }
+        case "rock": {
+          ctx.fillStyle = "#7c7a72";
+          ctx.beginPath();
+          ctx.ellipse(px + z * 0.5, py + z * 0.55, z * 0.3, z * 0.22, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#95938a";
+          ctx.beginPath();
+          ctx.ellipse(px + z * 0.44, py + z * 0.46, z * 0.2, z * 0.14, 0, 0, Math.PI * 2);
+          ctx.fill();
+          break;
+        }
+        case "park": {
+          ctx.fillStyle = "#3f7a38";
+          ctx.fillRect(px + 1, py + 1, z - 2, z - 2);
+          ctx.fillStyle = "#2c5424";
+          ctx.beginPath();
+          ctx.arc(px + z * 0.5, py + z * 0.5, z * 0.26, 0, Math.PI * 2);
+          ctx.fill();
+          break;
+        }
+        case "res":
+        case "com":
+        case "ind": {
+          const c = ZONE_COLORS[t.t]!;
+          // marcação da zona
+          ctx.fillStyle = c.tint + "";
+          ctx.globalAlpha = 0.35;
+          ctx.fillRect(px + 1, py + 1, z - 2, z - 2);
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = c.base;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(px + 1.5, py + 1.5, z - 3, z - 3);
+          if (t.lvl > 0) {
+            const h = 0.1 + t.lvl * 0.07;
+            const pad = z * (t.t === "ind" ? 0.06 : 0.14);
+            const bw = z - pad * 2;
+            const lift = z * h;
+            // sombra
+            ctx.fillStyle = "rgba(0,0,0,0.28)";
+            ctx.fillRect(px + pad + z * 0.06, py + pad + z * 0.06, bw, bw);
+            // corpo
+            ctx.fillStyle = shade(c.base, -60 + t.lvl * 6);
+            ctx.fillRect(px + pad, py + pad - lift, bw, bw + lift);
+            // telhado
+            ctx.fillStyle = t.t === "res" ? "#b4553f" : shade(c.roof, -10);
+            ctx.fillRect(px + pad, py + pad - lift, bw, bw);
+            // janelas
+            ctx.fillStyle = t.pow ? "rgba(255,236,170,0.8)" : "rgba(90,100,110,0.7)";
+            const cells = Math.min(3, 1 + t.lvl);
+            const gw = bw / (cells * 2 + 1);
+            for (let i = 0; i < cells; i++)
+              for (let j = 0; j < cells; j++)
+                ctx.fillRect(
+                  px + pad + gw * (1 + i * 2),
+                  py + pad - lift + gw * (1 + j * 2),
+                  gw,
+                  gw,
+                );
+          }
+          if (!t.pow && t.lvl >= 0) {
+            ctx.fillStyle = "rgba(255,80,80,0.85)";
+            ctx.beginPath();
+            ctx.arc(px + z * 0.85, py + z * 0.15, Math.max(1.5, z * 0.07), 0, Math.PI * 2);
+            ctx.fill();
+          }
+          break;
+        }
+        case "power":
+        case "police":
+        case "fire":
+        case "hospital":
+        case "school": {
+          const colors: Record<string, string> = {
+            power: "#6b6f76",
+            police: "#2f4d8a",
+            fire: "#a5352d",
+            hospital: "#d9dde2",
+            school: "#c98a3a",
+          };
+          ctx.fillStyle = "rgba(0,0,0,0.3)";
+          ctx.fillRect(px + z * 0.12, py + z * 0.12, z * 0.85, z * 0.85);
+          ctx.fillStyle = colors[t.t]!;
+          ctx.fillRect(px + z * 0.06, py - z * 0.12, z * 0.85, z * 0.95);
+          ctx.fillStyle = "rgba(255,255,255,0.25)";
+          ctx.fillRect(px + z * 0.06, py - z * 0.12, z * 0.85, z * 0.2);
+          break;
+        }
+        default:
+          break;
+      }
+    }
+  }
+
+  // preview de construção
+  const cells = opts.dragCells && opts.dragCells.length ? opts.dragCells : hover ? [hover] : [];
+  if (opts.brush) {
+    for (const c of cells) {
+      if (c.x < 0 || c.y < 0 || c.x >= W || c.y >= H) continue;
+      const px = originX + c.x * z;
+      const py = originY + c.y * z;
+      const bad =
+        tiles[idx(c.x, c.y)]!.t === "water" ||
+        (opts.brush === "bulldoze" && tiles[idx(c.x, c.y)]!.t === "empty");
+      ctx.fillStyle = bad ? "rgba(220,60,60,0.45)" : "rgba(255,255,255,0.35)";
+      ctx.fillRect(px, py, z, z);
+      ctx.strokeStyle = bad ? "rgba(255,90,90,0.9)" : "rgba(255,255,255,0.9)";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(px + 0.5, py + 0.5, z - 1, z - 1);
+    }
+  }
+}
