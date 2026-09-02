@@ -65,7 +65,7 @@ export function createMap(): Tile[] {
   const rockT = free[Math.floor(free.length * 0.69)]! ?? 1;
   for (let i = 0; i < tiles.length; i++) {
     if (tiles[i]!.t !== "empty") continue;
-    const f = forestMap[i];
+    const f = forestMap[i]!;
     if (f >= treeT) tiles[i]!.t = "tree";
     else if (f >= rockT) tiles[i]!.t = "rock";
   }
