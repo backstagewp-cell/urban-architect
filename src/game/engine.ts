@@ -36,6 +36,7 @@ export interface GameState {
 
 export function createMap(): Tile[] {
   const tiles: Tile[] = new Array(W * H);
+  const forestMap = new Float32Array(W * H);
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       let t: TileType = "empty";
@@ -51,16 +52,26 @@ export function createMap(): Tile[] {
       else if (Math.abs(x - riverCenter) < 3.4) t = "sand";
       else if (lakeD < 6) t = "water";
       else if (lakeD < 7.4) t = "sand";
-      else {
-        const forest = noise(x, y, 10, 21) * 0.7 + noise(x, y, 4, 33) * 0.3;
-        if (forest > 0.58) t = "tree";
-        else if (forest > 0.545) t = "rock";
-      }
+
+      forestMap[idx(x, y)] =
+        noise(x, y, 9, 21) * 0.65 + noise(x, y, 3.5, 33) * 0.35 + hash(x, y, 41) * 0.05;
       tiles[idx(x, y)] = { t, lvl: 0, grow: 0, pow: false, v: noise(x, y, 3.2, 55) };
     }
   }
+
+  // limiares por percentil: ~26% de árvores e ~5% de rochas no terreno livre
+  const free = [...forestMap].filter((_, i) => tiles[i].t === "empty").sort((a, b) => a - b);
+  const treeT = free[Math.floor(free.length * 0.74)] ?? 1;
+  const rockT = free[Math.floor(free.length * 0.69)] ?? 1;
+  for (let i = 0; i < tiles.length; i++) {
+    if (tiles[i].t !== "empty") continue;
+    const f = forestMap[i];
+    if (f >= treeT) tiles[i].t = "tree";
+    else if (f >= rockT) tiles[i].t = "rock";
+  }
   return tiles;
 }
+
 
 export function createGame(): GameState {
   return {
