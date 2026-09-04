@@ -136,27 +136,7 @@ export function render(
       const px = originX + x * z;
       const py = originY + y * z;
 
-      // sombreamento externo (calçada / meio-fio)
-      const curb = z * 0.06;
-      ctx.fillStyle = "#9c958a";
-      ctx.fillRect(px, py, z + 1, z + 1);
-      ctx.fillStyle = "#b3ab9e";
-      ctx.fillRect(px + 0.5, py + 0.5, z, z);
-
-      // asfalto base com gradiente
-      const grad = ctx.createLinearGradient(
-        px,
-        py + curb,
-        px,
-        py + z - curb,
-      );
-      grad.addColorStop(0, "#2f3033");
-      grad.addColorStop(0.5, "#3d3f44");
-      grad.addColorStop(1, "#2a2b2e");
-      ctx.fillStyle = grad;
-      ctx.fillRect(px + curb, py + curb, z - curb * 2, z - curb * 2);
-
-      // vizinhança para trechos retos / curvas / cruzamentos (incl. diagonais)
+      // vizinhança (4 e 8 direções)
       const n = y > 0 && tiles[idx(x, y - 1)]!.t === "road2";
       const s = y < H - 1 && tiles[idx(x, y + 1)]!.t === "road2";
       const w = x > 0 && tiles[idx(x - 1, y)]!.t === "road2";
@@ -174,8 +154,116 @@ export function render(
         ((s && w && e) && !n);
       const isStraightNS = n || s;
       const isStraightEW = w || e;
+      const hasNeighbor = n || s || w || e;
+      // tile totalmente isolado (sem nenhuma conexão, nem diagonal)
+      const isIsolated = !n && !s && !w && !e && !nw && !ne && !sw && !se;
 
-      // canteiro central (faixa dupla) — fica oculto em cruzamentos
+      // ============ 1) CALÇADA / MEIO-FIO ============
+      ctx.fillStyle = "#9c958a";
+      ctx.fillRect(px, py, z + 1, z + 1);
+      ctx.fillStyle = "#b3ab9e";
+      ctx.fillRect(px + 0.5, py + 0.5, z, z);
+
+      // ============ 2) ASFALTO BASE (sempre desenhado, inclusive isolado) ============
+      const curb = z * 0.06;
+      const grad = ctx.createLinearGradient(
+        px,
+        py + curb,
+        px,
+        py + z - curb,
+      );
+      grad.addColorStop(0, "#2f3033");
+      grad.addColorStop(0.5, "#3d3f44");
+      grad.addColorStop(1, "#2a2b2e");
+      ctx.fillStyle = grad;
+      ctx.fillRect(px + curb, py + curb, z - curb * 2, z - curb * 2);
+
+      // ============ 3) CURVAS L SUAVES (preenchem quinas com asfalto arredondado) ============
+      // Estas curvas cobrem os cantos onde NÃO há conexão naquela direção,
+      // arredondando o asfalto para que o segmento "receba" o vizinho de forma suave.
+      const cornerR = z * 0.22;
+      if (!n && w && !isIsolated) {
+        // canto NW: arredonda o canto superior-esquerdo (conexões a oeste e norte esperadas)
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(px + curb, py + z / 2);
+        ctx.lineTo(px + z / 2 - cornerR, py + z / 2);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z / 2, py + curb, cornerR);
+        ctx.lineTo(px + z / 2, py + curb);
+        ctx.fill();
+      }
+      if (!n && e && !isIsolated) {
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(px + z / 2, py + curb);
+        ctx.lineTo(px + z / 2, py + z / 2 - cornerR);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z - curb, py + z / 2, cornerR);
+        ctx.lineTo(px + z - curb, py + z / 2);
+        ctx.fill();
+      }
+      if (!s && w && !isIsolated) {
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(px + curb, py + z / 2);
+        ctx.lineTo(px + z / 2 - cornerR, py + z / 2);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z / 2, py + z - curb, cornerR);
+        ctx.lineTo(px + z / 2, py + z - curb);
+        ctx.fill();
+      }
+      if (!s && e && !isIsolated) {
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(px + z / 2, py + z - curb);
+        ctx.lineTo(px + z / 2, py + z / 2 + cornerR);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z - curb, py + z / 2, cornerR);
+        ctx.lineTo(px + z - curb, py + z / 2);
+        ctx.fill();
+      }
+
+      // cantos diagonais: arredondar asfalto quando o vizinho diagonal existe
+      // (evita quinas afiadas visíveis em curvas entre duas direções)
+      if ((nw || ne || sw || se) && !isCross) {
+        const r2 = z * 0.14;
+        if (nw) {
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.moveTo(px + curb, py + z / 2);
+          ctx.lineTo(px + z / 2 - r2, py + z / 2);
+          ctx.arcTo(px + z / 2, py + z / 2, px + z / 2, py + curb, r2);
+          ctx.lineTo(px + z / 2, py + curb);
+          ctx.fill();
+        }
+        if (ne) {
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.moveTo(px + z / 2, py + curb);
+          ctx.lineTo(px + z / 2, py + z / 2 - r2);
+          ctx.arcTo(px + z / 2, py + z / 2, px + z - curb, py + z / 2, r2);
+          ctx.lineTo(px + z - curb, py + z / 2);
+          ctx.fill();
+        }
+        if (sw) {
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.moveTo(px + curb, py + z / 2);
+          ctx.lineTo(px + z / 2 - r2, py + z / 2);
+          ctx.arcTo(px + z / 2, py + z / 2, px + z / 2, py + z - curb, r2);
+          ctx.lineTo(px + z / 2, py + z - curb);
+          ctx.fill();
+        }
+        if (se) {
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.moveTo(px + z / 2, py + z - curb);
+          ctx.lineTo(px + z / 2, py + z / 2 + r2);
+          ctx.arcTo(px + z / 2, py + z / 2, px + z - curb, py + z / 2, r2);
+          ctx.lineTo(px + z - curb, py + z / 2);
+          ctx.fill();
+        }
+      }
+
+      // ============ 4) CANTEIRO CENTRAL (faixa dupla amarela) ============
+      // O canteiro fica oculto apenas em cruzamento completo (4 vias).
       if (!isCross) {
         const medianW = Math.max(2, z * 0.1);
         const medianX = px + z / 2 - medianW / 2;
@@ -202,11 +290,22 @@ export function render(
           ctx.lineTo(medianX + medianW, medianY + 0.5);
           ctx.moveTo(medianX, medianY + medianH - 0.5);
           ctx.lineTo(medianX + medianW, medianY + medianH - 0.5);
+        } else {
+          // tile isolado (ou sem vizinhos nas 4 direções): pinta linhas amarelas duplas
+          // em ambos os eixos para que o tile sempre mostre o canteiro marcado.
+          ctx.moveTo(medianX + 0.5, medianY);
+          ctx.lineTo(medianX + 0.5, medianY + medianH);
+          ctx.moveTo(medianX + medianW - 0.5, medianY);
+          ctx.lineTo(medianX + medianW - 0.5, medianY + medianH);
+          ctx.moveTo(medianX, medianY + 0.5);
+          ctx.lineTo(medianX + medianW, medianY + 0.5);
+          ctx.moveTo(medianX, medianY + medianH - 0.5);
+          ctx.lineTo(medianX + medianW, medianY + medianH - 0.5);
         }
         ctx.stroke();
       }
 
-      // marcas de faixa tracejadas (entre o meio-fio e o canteiro)
+      // ============ 5) MARCAS DE FAIXA TRACEJADAS (duas pistas) ============
       ctx.strokeStyle = "rgba(240,235,210,0.85)";
       ctx.lineWidth = Math.max(1, z * 0.035);
       ctx.setLineDash([z * 0.18, z * 0.22]);
@@ -225,81 +324,26 @@ export function render(
         ctx.lineTo(px + z - curb - 1, yT);
         ctx.moveTo(px + curb + 1, yB);
         ctx.lineTo(px + z - curb - 1, yB);
+      } else if (isIsolated || !hasNeighbor) {
+        // tile isolado (ou sem vizinhos nas 4 direções): desenha as faixas nos
+        // dois eixos para que as duas pistas fiquem visíveis em qualquer direção.
+        const xL = px + z * 0.22;
+        const xR = px + z - z * 0.22;
+        ctx.moveTo(xL, py + curb + 1);
+        ctx.lineTo(xL, py + z - curb - 1);
+        ctx.moveTo(xR, py + curb + 1);
+        ctx.lineTo(xR, py + z - curb - 1);
+        const yT = py + z * 0.22;
+        const yB = py + z - z * 0.22;
+        ctx.moveTo(px + curb + 1, yT);
+        ctx.lineTo(px + z - curb - 1, yT);
+        ctx.moveTo(px + curb + 1, yB);
+        ctx.lineTo(px + z - curb - 1, yB);
       }
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // curvas L suaves — cantos arredondados com asfalto preenchendo o interior
-      const cornerR = z * 0.22;
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      if (!n && w) {
-        // canto NW: curva de oeste para norte
-        ctx.moveTo(px + curb, py + z / 2);
-        ctx.lineTo(px + z / 2 - cornerR, py + z / 2);
-        ctx.arcTo(px + z / 2, py + z / 2, px + z / 2, py + curb, cornerR);
-        ctx.lineTo(px + z / 2, py + curb);
-      } else if (!n && e) {
-        ctx.moveTo(px + z / 2, py + curb);
-        ctx.lineTo(px + z / 2, py + z / 2 - cornerR);
-        ctx.arcTo(px + z / 2, py + z / 2, px + z - curb, py + z / 2, cornerR);
-        ctx.lineTo(px + z - curb, py + z / 2);
-      } else if (!s && w) {
-        ctx.moveTo(px + curb, py + z / 2);
-        ctx.lineTo(px + z / 2 - cornerR, py + z / 2);
-        ctx.arcTo(px + z / 2, py + z / 2, px + z / 2, py + z - curb, cornerR);
-        ctx.lineTo(px + z / 2, py + z - curb);
-      } else if (!s && e) {
-        ctx.moveTo(px + z / 2, py + z - curb);
-        ctx.lineTo(px + z / 2, py + z / 2 + cornerR);
-        ctx.arcTo(px + z / 2, py + z / 2, px + z - curb, py + z / 2, cornerR);
-        ctx.lineTo(px + z - curb, py + z / 2);
-      }
-      if (ctx.closePath && (n || s || w || e)) {
-        // não chamar closePath para evitar fechar retângulos: path permanece aberto
-      }
-      ctx.fill();
-
-      // cantos diagonais: arredondar asfalto quando o vizinho diagonal existe
-      // (evita quinas afiadas visíveis em curvas entre duas direções)
-      if ((nw || ne || sw || se) && !(n && w && e && s)) {
-        ctx.fillStyle = grad;
-        const r2 = z * 0.14;
-        if (nw) {
-          ctx.beginPath();
-          ctx.moveTo(px + curb, py + z / 2);
-          ctx.lineTo(px + z / 2 - r2, py + z / 2);
-          ctx.arcTo(px + z / 2, py + z / 2, px + z / 2, py + curb, r2);
-          ctx.lineTo(px + z / 2, py + curb);
-          ctx.fill();
-        }
-        if (ne) {
-          ctx.beginPath();
-          ctx.moveTo(px + z / 2, py + curb);
-          ctx.lineTo(px + z / 2, py + z / 2 - r2);
-          ctx.arcTo(px + z / 2, py + z / 2, px + z - curb, py + z / 2, r2);
-          ctx.lineTo(px + z - curb, py + z / 2);
-          ctx.fill();
-        }
-        if (sw) {
-          ctx.beginPath();
-          ctx.moveTo(px + curb, py + z / 2);
-          ctx.lineTo(px + z / 2 - r2, py + z / 2);
-          ctx.arcTo(px + z / 2, py + z / 2, px + z / 2, py + z - curb, r2);
-          ctx.lineTo(px + z / 2, py + z - curb);
-          ctx.fill();
-        }
-        if (se) {
-          ctx.beginPath();
-          ctx.moveTo(px + z / 2, py + z - curb);
-          ctx.lineTo(px + z / 2, py + z / 2 + r2);
-          ctx.arcTo(px + z / 2, py + z / 2, px + z - curb, py + z / 2, r2);
-          ctx.lineTo(px + z - curb, py + z / 2);
-          ctx.fill();
-        }
-      }
-
-      // cruzamentos: faixas de pedestre (zebra) sobre o asfalto
+      // ============ 6) CRUZAMENTOS / T: faixas de pedestre (zebra) ============
       if (isCross || isT) {
         const stripeW = Math.max(1, z * 0.04);
         const stripeL = z * 0.18;
