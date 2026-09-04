@@ -101,14 +101,29 @@ export function Sidebar({
                 }
               }}
               className={cn(
-                "mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                "group relative mb-1 flex w-full items-center gap-3 overflow-hidden rounded-lg border-l-2 px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-out",
                 active
-                  ? "bg-primary text-primary-foreground"
-                  : "text-panel-foreground/85 hover:bg-panel-hover",
+                  ? "border-primary bg-gradient-to-r from-primary/25 via-primary/15 to-primary/5 text-primary shadow-lg shadow-primary/30 ring-1 ring-primary/20"
+                  : "border-transparent text-panel-foreground/85 hover:translate-x-0.5 hover:border-primary/60 hover:bg-panel-hover/80 hover:shadow-md hover:shadow-primary/10 hover:text-panel-foreground",
               )}
             >
-              <Icon className="size-[18px]" strokeWidth={1.9} />
-              {c.label}
+              <span
+                className={cn(
+                  "flex size-7 shrink-0 items-center justify-center rounded-md transition-all duration-200",
+                  active
+                    ? "bg-primary/25 text-primary shadow-inner shadow-primary/20"
+                    : "bg-panel-hover/40 text-panel-foreground/80 group-hover:bg-primary/15 group-hover:text-primary",
+                )}
+              >
+                <Icon className="size-5" strokeWidth={2.1} />
+              </span>
+              <span className="flex-1 text-left">{c.label}</span>
+              {active && (
+                <span
+                  aria-hidden="true"
+                  className="size-1.5 rounded-full bg-primary shadow-[0_0_8px_var(--color-primary)]"
+                />
+              )}
             </button>
           );
         })}
@@ -131,18 +146,47 @@ export function Sidebar({
                   onClick={() => onBrush(it.id)}
                   title={def?.desc}
                   className={cn(
-                    "flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border text-[11px] transition-all",
+                    "group relative flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border bg-gradient-to-br p-2 text-[11px] transition-all duration-200 ease-out",
                     active
-                      ? "border-primary bg-primary/15 text-panel-foreground"
-                      : "border-panel-border bg-panel-hover/50 text-panel-foreground/80 hover:bg-panel-hover",
+                      ? "border-primary bg-primary/15 text-panel-foreground shadow-md shadow-primary/25 ring-2 ring-primary/30"
+                      : "border-panel-border/60 from-panel to-panel-hover/40 text-panel-foreground/80 hover:scale-[1.02] hover:border-primary/40 hover:from-panel-hover/60 hover:to-panel-hover/30 hover:text-panel-foreground hover:shadow-md hover:shadow-primary/15",
                     !afford && "opacity-45",
                   )}
                 >
-                  <Icon className="size-6" strokeWidth={1.7} />
-                  <span className="px-1 text-center leading-tight">{it.label}</span>
-                  <span className="tabular-nums text-[10px] text-muted-foreground">
+                  <span
+                    className={cn(
+                      "flex size-9 items-center justify-center rounded-lg transition-all duration-200",
+                      active
+                        ? "bg-primary/25 text-primary shadow-inner shadow-primary/20"
+                        : "bg-panel/60 text-panel-foreground/80 group-hover:bg-primary/15 group-hover:text-primary",
+                    )}
+                  >
+                    <Icon className="size-6" strokeWidth={1.8} />
+                  </span>
+                  <span className="px-1 text-center text-[11px] font-semibold leading-tight">
+                    {it.label}
+                  </span>
+                  <span
+                    className={cn(
+                      "tabular-nums rounded-full px-1.5 text-[10px] transition-colors",
+                      active
+                        ? "bg-primary/25 text-primary"
+                        : "bg-panel/60 text-muted-foreground group-hover:bg-panel-hover/80",
+                    )}
+                  >
                     ${def?.cost}
                   </span>
+                  {active && (
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary shadow-[0_0_6px_var(--color-primary)]"
+                    />
+                  )}
+                  {active && (
+                    <span className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-primary/85 px-1.5 text-[8px] font-bold uppercase tracking-wider text-primary-foreground shadow-sm">
+                      Selecionado
+                    </span>
+                  )}
                 </button>
               );
             })}
