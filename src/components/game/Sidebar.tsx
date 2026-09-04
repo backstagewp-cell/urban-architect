@@ -74,9 +74,17 @@ export function Sidebar({
   const items = ITEMS[category]!;
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col overflow-y-auto border-r border-panel-border bg-panel text-panel-foreground">
-      <div className="px-4 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+      <div className="flex items-center gap-2 px-4 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        <span
+          aria-hidden="true"
+          className="inline-block size-1.5 rounded-full bg-[var(--color-primary)]/70 shadow-[0_0_6px_var(--color-primary)]/40"
+        />
         Ferramentas
       </div>
+      <div
+        aria-hidden="true"
+        className="mx-3 mb-1 h-px bg-gradient-to-r from-transparent via-panel-border to-transparent"
+      />
       <nav className="px-2 pb-2">
         {CATEGORIES.map((c) => {
           const Icon = c.icon;
