@@ -99,12 +99,14 @@ export const isZone = (t: TileType) => t === "res" || t === "com" || t === "ind"
 export const isBuildable = (t: TileType) =>
   t === "empty" || t === "tree" || t === "rock" || t === "sand";
 
+const isRoad = (t: TileType) => t === "road" || t === "road2";
+
 export function canPlace(state: GameState, x: number, y: number, type: TileType) {
   if (x < 0 || y < 0 || x >= W || y >= H) return false;
   const tile = state.tiles[idx(x, y)]!;
   if (tile.t === "water") return false;
   if (tile.t === type) return false;
-  return isBuildable(tile.t) || isZone(tile.t) || tile.t === "road" || tile.t === "park";
+  return isBuildable(tile.t) || isZone(tile.t) || isRoad(tile.t) || tile.t === "park";
 }
 
 export function place(state: GameState, x: number, y: number, type: TileType): boolean {
@@ -133,12 +135,12 @@ export function bulldoze(state: GameState, x: number, y: number): boolean {
   return true;
 }
 
-/** Acesso viário: BFS a partir das ruas até distância 3 */
+/** Acesso viário: BFS a partir das ruas/avenidas até distância 3 */
 function computeRoadAccess(tiles: Tile[]) {
   const access = new Uint8Array(W * H);
   const queue: number[] = [];
   for (let i = 0; i < tiles.length; i++) {
-    if (tiles[i]!.t === "road") {
+    if (isRoad(tiles[i]!.t)) {
       access[i] = 4;
       queue.push(i);
     }
@@ -159,7 +161,7 @@ function computeRoadAccess(tiles: Tile[]) {
     for (const n of nb) {
       if (n < 0) continue;
       if (access[n]! >= d - 1) continue;
-      if (tiles[n]!.t === "road") continue;
+      if (isRoad(tiles[n]!.t)) continue;
       access[n] = d - 1;
       queue.push(n);
     }
@@ -194,7 +196,7 @@ export function step(state: GameState) {
     const t = tiles[i]!.t;
     const def = BUILDINGS[t];
     if (def) upkeep += def.upkeep;
-    if (t === "road") roadCount++;
+    if (isRoad(t)) roadCount++;
     if (t === "power") powerProd += 900;
     const r = SERVICE_RADIUS[t];
     if (r) services.push({ x: i % W, y: (i / W) | 0, t, r });

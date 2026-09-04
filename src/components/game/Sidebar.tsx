@@ -27,7 +27,10 @@ const CATEGORIES: { id: ToolCategory; label: string; icon: typeof Hammer }[] = [
 ];
 
 const ITEMS: Record<ToolCategory, { id: TileType; label: string; icon: typeof Hammer }[]> = {
-  estradas: [{ id: "road", label: "Rua", icon: RouteIcon }],
+  estradas: [
+    { id: "road", label: "Rua", icon: RouteIcon },
+    { id: "road2", label: "Avenida", icon: RouteIcon },
+  ],
   zonas: [
     { id: "res", label: "Residencial", icon: Building2 },
     { id: "com", label: "Comercial", icon: ShoppingBag },

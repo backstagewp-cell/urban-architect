@@ -36,6 +36,8 @@ const ZONE_COLORS: Record<string, { base: string; roof: string; tint: string }> 
   ind: { base: "#d9a53c", roof: "#e8d6a8", tint: "#c4912f" },
 };
 
+const isRoad = (t: TileType) => t === "road" || t === "road2";
+
 export function render(
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -96,7 +98,7 @@ export function render(
     ctx.stroke();
   }
 
-  // ruas
+  // --- RUAS SIMPLES (road) ---
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       if (tiles[idx(x, y)]!.t !== "road") continue;
@@ -124,6 +126,220 @@ export function render(
       }
       ctx.stroke();
       ctx.setLineDash([]);
+    }
+  }
+
+  // --- AVENIDAS (road2) — aparência mais realista ---
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (tiles[idx(x, y)]!.t !== "road2") continue;
+      const px = originX + x * z;
+      const py = originY + y * z;
+
+      // sombreamento externo (calçada / meio-fio)
+      const curb = z * 0.06;
+      ctx.fillStyle = "#9c958a";
+      ctx.fillRect(px, py, z + 1, z + 1);
+      ctx.fillStyle = "#b3ab9e";
+      ctx.fillRect(px + 0.5, py + 0.5, z, z);
+
+      // asfalto base com gradiente
+      const grad = ctx.createLinearGradient(
+        px,
+        py + curb,
+        px,
+        py + z - curb,
+      );
+      grad.addColorStop(0, "#2f3033");
+      grad.addColorStop(0.5, "#3d3f44");
+      grad.addColorStop(1, "#2a2b2e");
+      ctx.fillStyle = grad;
+      ctx.fillRect(px + curb, py + curb, z - curb * 2, z - curb * 2);
+
+      // vizinhança para trechos retos / curvas / cruzamentos (incl. diagonais)
+      const n = y > 0 && tiles[idx(x, y - 1)]!.t === "road2";
+      const s = y < H - 1 && tiles[idx(x, y + 1)]!.t === "road2";
+      const w = x > 0 && tiles[idx(x - 1, y)]!.t === "road2";
+      const e = x < W - 1 && tiles[idx(x + 1, y)]!.t === "road2";
+      const nw = x > 0 && y > 0 && tiles[idx(x - 1, y - 1)]!.t === "road2";
+      const ne = x < W - 1 && y > 0 && tiles[idx(x + 1, y - 1)]!.t === "road2";
+      const sw = x > 0 && y < H - 1 && tiles[idx(x - 1, y + 1)]!.t === "road2";
+      const se = x < W - 1 && y < H - 1 && tiles[idx(x + 1, y + 1)]!.t === "road2";
+
+      const isCross = n && s && w && e;
+      const isT =
+        ((n && s && w) && !e) ||
+        ((n && s && e) && !w) ||
+        ((n && w && e) && !s) ||
+        ((s && w && e) && !n);
+      const isStraightNS = n || s;
+      const isStraightEW = w || e;
+
+      // canteiro central (faixa dupla) — fica oculto em cruzamentos
+      if (!isCross) {
+        const medianW = Math.max(2, z * 0.1);
+        const medianX = px + z / 2 - medianW / 2;
+        const medianY = py + curb;
+        const medianH = z - curb * 2;
+        const mg = ctx.createLinearGradient(medianX, medianY, medianX + medianW, medianY);
+        mg.addColorStop(0, "#1f1d1a");
+        mg.addColorStop(0.5, "#33312c");
+        mg.addColorStop(1, "#1f1d1a");
+        ctx.fillStyle = mg;
+        ctx.fillRect(medianX, medianY, medianW, medianH);
+
+        // linha amarela contínua nas bordas do canteiro (faixa dupla)
+        ctx.strokeStyle = "rgba(245,210,80,0.9)";
+        ctx.lineWidth = Math.max(1, z * 0.025);
+        ctx.beginPath();
+        if (isStraightNS) {
+          ctx.moveTo(medianX + 0.5, medianY);
+          ctx.lineTo(medianX + 0.5, medianY + medianH);
+          ctx.moveTo(medianX + medianW - 0.5, medianY);
+          ctx.lineTo(medianX + medianW - 0.5, medianY + medianH);
+        } else if (isStraightEW) {
+          ctx.moveTo(medianX, medianY + 0.5);
+          ctx.lineTo(medianX + medianW, medianY + 0.5);
+          ctx.moveTo(medianX, medianY + medianH - 0.5);
+          ctx.lineTo(medianX + medianW, medianY + medianH - 0.5);
+        }
+        ctx.stroke();
+      }
+
+      // marcas de faixa tracejadas (entre o meio-fio e o canteiro)
+      ctx.strokeStyle = "rgba(240,235,210,0.85)";
+      ctx.lineWidth = Math.max(1, z * 0.035);
+      ctx.setLineDash([z * 0.18, z * 0.22]);
+      ctx.beginPath();
+      if (isStraightNS) {
+        const xL = px + z * 0.22;
+        const xR = px + z - z * 0.22;
+        ctx.moveTo(xL, py + curb + 1);
+        ctx.lineTo(xL, py + z - curb - 1);
+        ctx.moveTo(xR, py + curb + 1);
+        ctx.lineTo(xR, py + z - curb - 1);
+      } else if (isStraightEW) {
+        const yT = py + z * 0.22;
+        const yB = py + z - z * 0.22;
+        ctx.moveTo(px + curb + 1, yT);
+        ctx.lineTo(px + z - curb - 1, yT);
+        ctx.moveTo(px + curb + 1, yB);
+        ctx.lineTo(px + z - curb - 1, yB);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // curvas L suaves — cantos arredondados com asfalto preenchendo o interior
+      const cornerR = z * 0.22;
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      if (!n && w) {
+        // canto NW: curva de oeste para norte
+        ctx.moveTo(px + curb, py + z / 2);
+        ctx.lineTo(px + z / 2 - cornerR, py + z / 2);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z / 2, py + curb, cornerR);
+        ctx.lineTo(px + z / 2, py + curb);
+      } else if (!n && e) {
+        ctx.moveTo(px + z / 2, py + curb);
+        ctx.lineTo(px + z / 2, py + z / 2 - cornerR);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z - curb, py + z / 2, cornerR);
+        ctx.lineTo(px + z - curb, py + z / 2);
+      } else if (!s && w) {
+        ctx.moveTo(px + curb, py + z / 2);
+        ctx.lineTo(px + z / 2 - cornerR, py + z / 2);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z / 2, py + z - curb, cornerR);
+        ctx.lineTo(px + z / 2, py + z - curb);
+      } else if (!s && e) {
+        ctx.moveTo(px + z / 2, py + z - curb);
+        ctx.lineTo(px + z / 2, py + z / 2 + cornerR);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z - curb, py + z / 2, cornerR);
+        ctx.lineTo(px + z - curb, py + z / 2);
+      }
+      if (ctx.closePath && (n || s || w || e)) {
+        // não chamar closePath para evitar fechar retângulos: path permanece aberto
+      }
+      ctx.fill();
+
+      // cantos diagonais: arredondar asfalto quando o vizinho diagonal existe
+      // (evita quinas afiadas visíveis em curvas entre duas direções)
+      if ((nw || ne || sw || se) && !(n && w && e && s)) {
+        ctx.fillStyle = grad;
+        const r2 = z * 0.14;
+        if (nw) {
+          ctx.beginPath();
+          ctx.moveTo(px + curb, py + z / 2);
+          ctx.lineTo(px + z / 2 - r2, py + z / 2);
+          ctx.arcTo(px + z / 2, py + z / 2, px + z / 2, py + curb, r2);
+          ctx.lineTo(px + z / 2, py + curb);
+          ctx.fill();
+        }
+        if (ne) {
+          ctx.beginPath();
+          ctx.moveTo(px + z / 2, py + curb);
+          ctx.lineTo(px + z / 2, py + z / 2 - r2);
+          ctx.arcTo(px + z / 2, py + z / 2, px + z - curb, py + z / 2, r2);
+          ctx.lineTo(px + z - curb, py + z / 2);
+          ctx.fill();
+        }
+        if (sw) {
+          ctx.beginPath();
+          ctx.moveTo(px + curb, py + z / 2);
+          ctx.lineTo(px + z / 2 - r2, py + z / 2);
+          ctx.arcTo(px + z / 2, py + z / 2, px + z / 2, py + z - curb, r2);
+          ctx.lineTo(px + z / 2, py + z - curb);
+          ctx.fill();
+        }
+        if (se) {
+          ctx.beginPath();
+          ctx.moveTo(px + z / 2, py + z - curb);
+          ctx.lineTo(px + z / 2, py + z / 2 + r2);
+          ctx.arcTo(px + z / 2, py + z / 2, px + z - curb, py + z / 2, r2);
+          ctx.lineTo(px + z - curb, py + z / 2);
+          ctx.fill();
+        }
+      }
+
+      // cruzamentos: faixas de pedestre (zebra) sobre o asfalto
+      if (isCross || isT) {
+        const stripeW = Math.max(1, z * 0.04);
+        const stripeL = z * 0.18;
+        ctx.fillStyle = "rgba(245,240,220,0.85)";
+        // zebra horizontal (cobrindo entrada N/S quando há conexão N ou S)
+        if (n || s) {
+          const cy = py + z * 0.5 - stripeW / 2;
+          for (let i = -2; i <= 2; i++) {
+            ctx.fillRect(
+              px + z * 0.5 - stripeL + i * (stripeL * 0.55),
+              cy,
+              stripeL * 0.4,
+              stripeW,
+            );
+          }
+        }
+        // zebra vertical (cobrindo entrada E/W quando há conexão E ou W)
+        if (w || e) {
+          const cx = px + z * 0.5 - stripeW / 2;
+          for (let i = -2; i <= 2; i++) {
+            ctx.fillRect(
+              cx,
+              py + z * 0.5 - stripeL + i * (stripeL * 0.55),
+              stripeW,
+              stripeL * 0.4,
+            );
+          }
+        }
+        // linha amarela contínua cruzando em cruzamento completo
+        if (isCross) {
+          ctx.strokeStyle = "rgba(245,210,80,0.85)";
+          ctx.lineWidth = Math.max(1, z * 0.02);
+          ctx.beginPath();
+          ctx.moveTo(px + z / 2, py + curb + 1);
+          ctx.lineTo(px + z / 2, py + z - curb - 1);
+          ctx.moveTo(px + curb + 1, py + z / 2);
+          ctx.lineTo(px + z - curb - 1, py + z / 2);
+          ctx.stroke();
+        }
+      }
     }
   }
 

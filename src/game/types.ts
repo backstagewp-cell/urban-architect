@@ -7,6 +7,7 @@ export type TileType =
   | "tree"
   | "rock"
   | "road"
+  | "road2"
   | "res"
   | "com"
   | "ind"
@@ -63,6 +64,14 @@ export const BUILDINGS: Record<string, BuildDef> = {
     upkeep: 0.15,
     category: "estradas",
     desc: "Conecta zonas. Sem rua não há desenvolvimento.",
+  },
+  road2: {
+    id: "road2",
+    label: "Avenida",
+    cost: 25,
+    upkeep: 0.4,
+    category: "estradas",
+    desc: "Avenida de mão dupla, mais larga e realista. Conecta zonas com maior capacidade.",
   },
   res: {
     id: "res",
