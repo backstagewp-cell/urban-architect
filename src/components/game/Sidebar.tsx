@@ -140,6 +140,7 @@ export function Sidebar({
               const def = BUILDINGS[it.id];
               const active = brush === it.id;
               const afford = money >= (def?.cost ?? 0);
+              const isAvenida = it.id === "road2";
               return (
                 <button
                   key={it.id}
@@ -148,8 +149,12 @@ export function Sidebar({
                   className={cn(
                     "group relative flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border bg-gradient-to-br p-2 text-[11px] transition-all duration-200 ease-out",
                     active
-                      ? "border-primary bg-primary/15 text-panel-foreground shadow-md shadow-primary/25 ring-2 ring-primary/30"
-                      : "border-panel-border/60 from-panel to-panel-hover/40 text-panel-foreground/80 hover:scale-[1.02] hover:border-primary/40 hover:from-panel-hover/60 hover:to-panel-hover/30 hover:text-panel-foreground hover:shadow-md hover:shadow-primary/15",
+                      ? isAvenida
+                        ? "border-red-600 bg-red-500/15 text-panel-foreground shadow-md shadow-red-500/25 ring-2 ring-red-500/30"
+                        : "border-primary bg-primary/15 text-panel-foreground shadow-md shadow-primary/25 ring-2 ring-primary/30"
+                      : isAvenida
+                        ? "border-red-500/60 from-panel to-panel-hover/40 text-panel-foreground/80 hover:scale-[1.02] hover:border-red-500 hover:from-panel-hover/60 hover:to-panel-hover/30 hover:text-panel-foreground hover:shadow-md hover:shadow-red-500/20"
+                        : "border-panel-border/60 from-panel to-panel-hover/40 text-panel-foreground/80 hover:scale-[1.02] hover:border-primary/40 hover:from-panel-hover/60 hover:to-panel-hover/30 hover:text-panel-foreground hover:shadow-md hover:shadow-primary/15",
                     !afford && "opacity-45",
                   )}
                 >
@@ -157,8 +162,12 @@ export function Sidebar({
                     className={cn(
                       "flex size-9 items-center justify-center rounded-lg transition-all duration-200",
                       active
-                        ? "bg-primary/25 text-primary shadow-inner shadow-primary/20"
-                        : "bg-panel/60 text-panel-foreground/80 group-hover:bg-primary/15 group-hover:text-primary",
+                        ? isAvenida
+                          ? "bg-red-500/25 text-red-500 shadow-inner shadow-red-500/20"
+                          : "bg-primary/25 text-primary shadow-inner shadow-primary/20"
+                        : isAvenida
+                          ? "bg-panel/60 text-panel-foreground/80 group-hover:bg-red-500/15 group-hover:text-red-500"
+                          : "bg-panel/60 text-panel-foreground/80 group-hover:bg-primary/15 group-hover:text-primary",
                     )}
                   >
                     <Icon className="size-6" strokeWidth={1.8} />
@@ -170,8 +179,12 @@ export function Sidebar({
                     className={cn(
                       "tabular-nums rounded-full px-1.5 text-[10px] transition-colors",
                       active
-                        ? "bg-primary/25 text-primary"
-                        : "bg-panel/60 text-muted-foreground group-hover:bg-panel-hover/80",
+                        ? isAvenida
+                          ? "bg-red-500/25 text-red-500"
+                          : "bg-primary/25 text-primary"
+                        : isAvenida
+                          ? "bg-panel/60 text-muted-foreground group-hover:bg-red-500/10"
+                          : "bg-panel/60 text-muted-foreground group-hover:bg-panel-hover/80",
                     )}
                   >
                     ${def?.cost}
@@ -179,11 +192,21 @@ export function Sidebar({
                   {active && (
                     <span
                       aria-hidden="true"
-                      className="pointer-events-none absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary shadow-[0_0_6px_var(--color-primary)]"
+                      className={cn(
+                        "pointer-events-none absolute right-1.5 top-1.5 size-1.5 rounded-full shadow-[0_0_6px_var(--color-primary)]",
+                        isAvenida ? "bg-red-500 shadow-[0_0_6px_var(--color-red-500)]" : "bg-primary",
+                      )}
                     />
                   )}
                   {active && (
-                    <span className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-primary/85 px-1.5 text-[8px] font-bold uppercase tracking-wider text-primary-foreground shadow-sm">
+                    <span
+                      className={cn(
+                        "pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 rounded-full px-1.5 text-[8px] font-bold uppercase tracking-wider shadow-sm",
+                        isAvenida
+                          ? "bg-red-500/85 text-white"
+                          : "bg-primary/85 text-primary-foreground",
+                      )}
+                    >
                       Selecionado
                     </span>
                   )}
