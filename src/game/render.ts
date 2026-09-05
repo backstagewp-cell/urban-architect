@@ -1,5 +1,6 @@
 import { H, W, type GameState } from "./engine";
 import type { TileType } from "./types";
+import { drawAgents } from "./agents";
 
 export interface Camera {
   x: number; // centro em tiles
@@ -499,6 +500,10 @@ export function render(
       }
     }
   }
+
+  // --- AGENTES (carros e pedestres) sobre as vias ---
+  // Desenhados após o cenário para ficarem sobrepostos corretamente.
+  drawAgents(ctx, originX, originY, z, { x0, y0, x1, y1 }, state);
 
   // preview de construção
   const cells = opts.dragCells && opts.dragCells.length ? opts.dragCells : hover ? [hover] : [];

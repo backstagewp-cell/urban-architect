@@ -1,4 +1,13 @@
 import { BUILDINGS, SERVICE_RADIUS, type Demand, type Stats, type Tile, type TileType } from "./types";
+import {
+  buildRoadGraph,
+  pruneAgentsAt,
+  reconcileAgents,
+  removeOrphanAgents,
+  stepAgents,
+  makeRng,
+  type Agent,
+} from "./agents";
 
 export const W = 72;
 export const H = 72;
@@ -32,6 +41,7 @@ export interface GameState {
   stats: Stats;
   history: { pop: number; money: number }[];
   ticks: number;
+  agents: Agent[];
 }
 
 export function createMap(): Tile[] {
@@ -78,6 +88,7 @@ export function createGame(): GameState {
     tiles: createMap(),
     ticks: 0,
     history: [],
+    agents: [],
     stats: {
       money: 50000,
       pop: 0,
@@ -115,6 +126,8 @@ export function place(state: GameState, x: number, y: number, type: TileType): b
   if (!def) return false;
   if (state.stats.money < def.cost) return false;
   state.stats.money -= def.cost;
+  // remove qualquer agente que estivesse nesse tile (ex.: demolição lógica)
+  pruneAgentsAt(state, x, y);
   state.tiles[idx(x, y)] = { t: type, lvl: 0, grow: 0, pow: false, v: hash(x, y, 99) };
   return true;
 }
@@ -125,6 +138,8 @@ export function bulldoze(state: GameState, x: number, y: number): boolean {
   if (tile.t === "empty" || tile.t === "water" || tile.t === "sand") return false;
   if (state.stats.money < 4) return false;
   state.stats.money -= 4;
+  // remove agentes no tile demolido
+  pruneAgentsAt(state, x, y);
   state.tiles[idx(x, y)] = {
     t: tile.t === "tree" || tile.t === "rock" ? "empty" : "empty",
     lvl: 0,
@@ -181,6 +196,9 @@ export function jobsOf(t: Tile) {
   if (t.t === "ind") return t.lvl * 11;
   return 0;
 }
+
+// RNG compartilhado para o sistema de agentes. Determinístico por tick.
+const AGENT_RNG = makeRng(20260524);
 
 export function step(state: GameState) {
   const { tiles, stats } = state;
@@ -345,4 +363,13 @@ export function step(state: GameState) {
     state.history.push({ pop, money: stats.money });
     if (state.history.length > 120) state.history.shift();
   }
+
+  // --- simulação de agentes (carros e pedestres) ---
+  // Limpa agentes que ficaram em tiles não viários e reconcilia quantidade
+  // com a população atual (REQs 2 e 6).
+  removeOrphanAgents(state);
+  const nodes = buildRoadGraph(state);
+  reconcileAgents(state, nodes, AGENT_RNG);
+  // Avança o movimento dos agentes (1s de simulação por tick econômico).
+  stepAgents(state, 1.0, AGENT_RNG);
 }

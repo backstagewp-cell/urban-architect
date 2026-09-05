@@ -168,6 +168,7 @@ export function CityGame() {
   };
 
   const reset = () => {
+    // createGame() já inicializa state.agents = [], garantindo reset da simulação.
     gameRef.current = createGame();
     setStats({ ...gameRef.current.stats });
     notify("Nova cidade fundada!");
