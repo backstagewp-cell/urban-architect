@@ -37,7 +37,7 @@ const ZONE_COLORS: Record<string, { base: string; roof: string; tint: string }> 
   ind: { base: "#d9a53c", roof: "#e8d6a8", tint: "#c4912f" },
 };
 
-const isRoad = (t: TileType) => t === "road" || t === "road2";
+const isRoad = (t: TileType) => t === "road" || t === "road2" || t === "road_curve";
 
 export function render(
   ctx: CanvasRenderingContext2D,
@@ -385,6 +385,151 @@ export function render(
           ctx.stroke();
         }
       }
+    }
+  }
+
+  // --- RUAS COM CURVA (road_curve) — rua de mão simples com curva em L ---
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (tiles[idx(x, y)]!.t !== "road_curve") continue;
+      const px = originX + x * z;
+      const py = originY + y * z;
+
+      // Vizinhança específica de road_curve nas 4 direções cardeais.
+      const nC = y > 0 && tiles[idx(x, y - 1)]!.t === "road_curve";
+      const sC = y < H - 1 && tiles[idx(x, y + 1)]!.t === "road_curve";
+      const wC = x > 0 && tiles[idx(x - 1, y)]!.t === "road_curve";
+      const eC = x < W - 1 && tiles[idx(x + 1, y)]!.t === "road_curve";
+
+      // Direção dominante da curva (escolhida a partir das conexões existentes).
+      // Cada combinação representa um canto de curva em L.
+      const isNW = nC && wC && !sC && !eC;
+      const isNE = nC && eC && !sC && !wC;
+      const isSW = sC && wC && !nC && !eC;
+      const isSE = sC && eC && !nC && !wC;
+      // Casos degenerados (sem vizinhos ou mais de duas direções):
+      // se houver exatamente uma direção, mantém-se reta naquele eixo.
+      const onlyNS = !wC && !eC && (nC ? 1 : 0) + (sC ? 1 : 0) > 0;
+      const onlyEW = !nC && !sC && (wC ? 1 : 0) + (eC ? 1 : 0) > 0;
+      const isIsolatedCurve = !nC && !sC && !wC && !eC;
+
+      // ============ 1) CALÇADA / MEIO-FIO (esquerda e direita de cada via) ============
+      ctx.fillStyle = "#9c958a";
+      ctx.fillRect(px, py, z + 1, z + 1);
+      ctx.fillStyle = "#b3ab9e";
+      ctx.fillRect(px + 0.5, py + 0.5, z, z);
+
+      // ============ 2) ASFALTO BASE — sempre desenhado, inclusive isolado ============
+      const curb = z * 0.06;
+      const grad = ctx.createLinearGradient(px, py + curb, px, py + z - curb);
+      grad.addColorStop(0, "#2f3033");
+      grad.addColorStop(0.5, "#3d3f44");
+      grad.addColorStop(1, "#2a2b2e");
+      ctx.fillStyle = grad;
+      ctx.fillRect(px + curb, py + curb, z - curb * 2, z - curb * 2);
+
+      // ============ 3) CURVAS EM L (preenchem a quina onde há conexão) ============
+      // Aqui a "conexão" relevante é justamente o lado por onde a via chega;
+      // arredondamos o asfalto do lado da curva para uma aparência suave.
+      const cornerR = z * 0.28;
+
+      if (isNW) {
+        // Curva conectando norte + oeste: arredonda canto NW.
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(px + z / 2, py + curb);
+        ctx.lineTo(px + z / 2, py + z / 2 - cornerR);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z / 2 - cornerR, py + z / 2, cornerR);
+        ctx.lineTo(px + curb, py + z / 2);
+        ctx.closePath();
+        ctx.fill();
+      } else if (isNE) {
+        // Curva conectando norte + leste: arredonda canto NE.
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(px + z / 2, py + curb);
+        ctx.lineTo(px + z / 2, py + z / 2 - cornerR);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z / 2 + cornerR, py + z / 2, cornerR);
+        ctx.lineTo(px + z - curb, py + z / 2);
+        ctx.closePath();
+        ctx.fill();
+      } else if (isSW) {
+        // Curva conectando sul + oeste: arredonda canto SW.
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(px + z / 2, py + z - curb);
+        ctx.lineTo(px + z / 2, py + z / 2 + cornerR);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z / 2 - cornerR, py + z / 2, cornerR);
+        ctx.lineTo(px + curb, py + z / 2);
+        ctx.closePath();
+        ctx.fill();
+      } else if (isSE) {
+        // Curva conectando sul + leste: arredonda canto SE.
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(px + z / 2, py + z - curb);
+        ctx.lineTo(px + z / 2, py + z / 2 + cornerR);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z / 2 + cornerR, py + z / 2, cornerR);
+        ctx.lineTo(px + z - curb, py + z / 2);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // ============ 4) FAIXA AMARELA CENTRAL ÚNICA (sem canteiro, sem dupla) ============
+      // Apenas onde existe de fato um trecho da via; nas quinas curvas ela
+      // segue a linha central do "L".
+      ctx.strokeStyle = "rgba(245,210,80,0.9)";
+      ctx.lineWidth = Math.max(1, z * 0.04);
+      ctx.setLineDash([z * 0.22, z * 0.2]);
+      ctx.beginPath();
+      if (isNW) {
+        // Faixa que desce do norte e dobra para oeste.
+        ctx.moveTo(px + z / 2, py + curb);
+        ctx.lineTo(px + z / 2, py + z / 2);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z / 2 - cornerR * 0.2, py + z / 2, cornerR);
+        ctx.lineTo(px + curb, py + z / 2);
+      } else if (isNE) {
+        ctx.moveTo(px + z / 2, py + curb);
+        ctx.lineTo(px + z / 2, py + z / 2);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z / 2 + cornerR * 0.2, py + z / 2, cornerR);
+        ctx.lineTo(px + z - curb, py + z / 2);
+      } else if (isSW) {
+        ctx.moveTo(px + z / 2, py + z - curb);
+        ctx.lineTo(px + z / 2, py + z / 2);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z / 2 - cornerR * 0.2, py + z / 2, cornerR);
+        ctx.lineTo(px + curb, py + z / 2);
+      } else if (isSE) {
+        ctx.moveTo(px + z / 2, py + z - curb);
+        ctx.lineTo(px + z / 2, py + z / 2);
+        ctx.arcTo(px + z / 2, py + z / 2, px + z / 2 + cornerR * 0.2, py + z / 2, cornerR);
+        ctx.lineTo(px + z - curb, py + z / 2);
+      } else if (onlyNS) {
+        ctx.moveTo(px + z / 2, py + curb);
+        ctx.lineTo(px + z / 2, py + z - curb);
+      } else if (onlyEW) {
+        ctx.moveTo(px + curb, py + z / 2);
+        ctx.lineTo(px + z - curb, py + z / 2);
+      } else if (isIsolatedCurve) {
+        // sem vizinhos: desenha a faixa amarela em ambos os eixos para não
+        // deixar o tile vazio visualmente.
+        ctx.moveTo(px + z / 2, py + curb);
+        ctx.lineTo(px + z / 2, py + z - curb);
+        ctx.moveTo(px + curb, py + z / 2);
+        ctx.lineTo(px + z - curb, py + z / 2);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // ============ 5) CONTORNO INTERNO DO ASFALTO (sutil) ============
+      // Suaviza a borda entre asfalto e meio-fio nos lados onde há conexão.
+      ctx.strokeStyle = "rgba(255,255,255,0.18)";
+      ctx.lineWidth = Math.max(1, z * 0.02);
+      ctx.beginPath();
+      if (nC) ctx.moveTo(px + z / 2 - z * 0.18, py + curb); ctx.lineTo(px + z / 2 - z * 0.18, py + z / 2);
+      if (sC) ctx.moveTo(px + z / 2 + z * 0.18, py + z / 2); ctx.lineTo(px + z / 2 + z * 0.18, py + z - curb);
+      if (wC) ctx.moveTo(px + curb, py + z / 2 + z * 0.18); ctx.lineTo(px + z / 2, py + z / 2 + z * 0.18);
+      if (eC) ctx.moveTo(px + z / 2, py + z / 2 - z * 0.18); ctx.lineTo(px + z - curb, py + z / 2 - z * 0.18);
+      ctx.stroke();
     }
   }
 

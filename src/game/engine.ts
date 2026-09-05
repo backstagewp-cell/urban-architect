@@ -110,7 +110,7 @@ export const isZone = (t: TileType) => t === "res" || t === "com" || t === "ind"
 export const isBuildable = (t: TileType) =>
   t === "empty" || t === "tree" || t === "rock" || t === "sand";
 
-const isRoad = (t: TileType) => t === "road" || t === "road2";
+const isRoad = (t: TileType) => t === "road" || t === "road2" || t === "road_curve";
 
 export function canPlace(state: GameState, x: number, y: number, type: TileType) {
   if (x < 0 || y < 0 || x >= W || y >= H) return false;

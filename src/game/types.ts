@@ -8,6 +8,7 @@ export type TileType =
   | "rock"
   | "road"
   | "road2"
+  | "road_curve"
   | "res"
   | "com"
   | "ind"
@@ -72,6 +73,14 @@ export const BUILDINGS: Record<string, BuildDef> = {
     upkeep: 0.4,
     category: "estradas",
     desc: "Avenida de mão dupla, mais larga e realista. Conecta zonas com maior capacidade.",
+  },
+  road_curve: {
+    id: "road_curve",
+    label: "Rua com curva",
+    cost: 18,
+    upkeep: 0.25,
+    category: "estradas",
+    desc: "Rua de mão simples com curva em L para conectar vias em ângulo. Não tem canteiro central.",
   },
   res: {
     id: "res",

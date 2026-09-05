@@ -30,6 +30,7 @@ const ITEMS: Record<ToolCategory, { id: TileType; label: string; icon: typeof Ha
   estradas: [
     { id: "road", label: "Rua", icon: RouteIcon },
     { id: "road2", label: "Avenida", icon: RouteIcon },
+    { id: "road_curve", label: "Rua com curva", icon: RouteIcon },
   ],
   zonas: [
     { id: "res", label: "Residencial", icon: Building2 },
